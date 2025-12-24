@@ -184,9 +184,21 @@ impl<'probe> Armv7a<'probe> {
     }
 
     fn read_fp_reg_count(&mut self) -> Result<(), Error> {
+
         if self.state.fp_reg_count == 0 && matches!(self.state.current_state, CoreStatus::Halted(_))
         {
             self.prepare_r0_for_clobber()?;
+
+            // Check CP10/CP11 in CPACR, if disabled then don't try to read MVFR0.
+            let instruction = build_mrc(15, 0, 0, 1, 0, 2);
+            self.execute_instruction(instruction)?;
+            let instruction = build_mcr(14, 0, 0, 0, 5, 0);
+            let cpacr = self.execute_instruction_with_result(instruction)?;
+            let cp10 = (cpacr >> 20) & 0b11;
+            let cp11 = (cpacr >> 22) & 0b11;
+            if cp10 == 0 || cp11 == 0 {
+                return Ok(());
+            }
 
             // VMRS r0, MVFR0
             let instruction = build_vmrs(0, 0b0111);
@@ -551,7 +563,7 @@ fn check_and_clear_data_abort(
     dbgdscr: Dbgdscr,
 ) -> Result<(), ArmError> {
     // Check if we had any aborts, if so clear them and fail
-    if dbgdscr.adabort_l() || dbgdscr.sdabort_l() {
+    if dbgdscr.adabort_l() || dbgdscr.sdabort_l() || dbgdscr.und_l() {
         let address = Dbgdrcr::get_mmio_address_from_base(base_address)?;
         let mut dbgdrcr = Dbgdrcr(0);
         dbgdrcr.set_cse(true);
@@ -742,6 +754,15 @@ impl CoreInterface for Armv7a<'_> {
 
         // set writeback values
         self.writeback_registers()?;
+
+        // Disable ITRen before sending RRQ (per ARM C5.7)
+        if self.itr_enabled {
+            let address = Dbgdscr::get_mmio_address_from_base(self.base_address)?;
+            let mut dbgdscr = Dbgdscr(self.memory.read_word_32(address)?);
+            dbgdscr.set_itren(false);
+            self.memory.write_word_32(address, dbgdscr.into())?;
+            self.itr_enabled = false;
+        }
 
         run(&mut *self.memory, self.base_address)?;
 

@@ -1514,6 +1514,7 @@ impl From<ShiftDrCommand> for JtagCommand {
 /// Chain parameters to select a target tap within the chain.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct ChainParams {
+    pub index: usize,
     pub irpre: usize,
     pub irpost: usize,
     pub drpre: usize,
@@ -1524,6 +1525,7 @@ pub(crate) struct ChainParams {
 impl ChainParams {
     fn from_jtag_chain(chain: &[ScanChainElement], selected: usize) -> Option<Self> {
         let mut params = Self::default();
+        params.index = selected;
 
         let mut found = false;
         for (index, tap) in chain.iter().enumerate() {

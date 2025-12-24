@@ -1,0 +1,59 @@
+---
+name: Zynq 7000 Series
+manufacturer:
+  id: 0xC9
+  cc: 0x0
+variants:
+- name: XC7Z
+  cores:
+    - name: core0
+      type: armv7a
+      core_access_options: !Arm
+        ap: !v1 1
+        debug_base: 0x80090000  # This address used from APB-AP debug bus.
+        cti_base: 0x80098000
+        jtag_tap: 1
+    - name: core1
+      type: armv7a
+      core_access_options: !Arm
+        ap: !v1 1
+        debug_base: 0x80092000  # This address used from APB-AP debug bus.
+        cti_base: 0x80099000
+        jtag_tap: 1
+  jtag:
+    scan_chain:
+      - name: PL
+        ir_len: 6
+      - name: PS
+        ir_len: 4
+  rtt_scan_ranges:
+    - start: 0x00000000
+      end: 0x00040000
+  memory_map:
+    - !Ram
+      name: OCM
+      range:
+        start: 0x00000000
+        end: 0x00040000
+      cores:
+        - core0
+        - core1
+      access:
+        boot: true
+    - !Ram
+      name: DDR
+      range:
+        start: 0x00100000
+        end: 0x3fffffff
+      cores:
+        - core0
+        - core1
+    - !Nvm
+      name: QSPI
+      range:
+        start: 0xfc000000
+        end: 0xfcffffff
+      cores:
+        - core0
+        - core1
+  flash_algorithms: []
