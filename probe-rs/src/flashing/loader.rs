@@ -114,7 +114,8 @@ impl ImageLoader for ElfLoader {
                 _ => "Multiple sections",
             };
 
-            if source == VECTOR_TABLE_SECTION_NAME {
+            if section.section_names.contains(&VECTOR_TABLE_SECTION_NAME.to_string()) {
+            //if source == VECTOR_TABLE_SECTION_NAME {
                 flash_loader.set_vector_table_addr(section.address as _);
             }
 

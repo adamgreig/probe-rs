@@ -4,7 +4,7 @@ manufacturer:
   id: 0xC9
   cc: 0x0
 variants:
-- name: XC7Z
+- name: X7Z
   cores:
     - name: core0
       type: armv7a
@@ -56,4 +56,33 @@ variants:
       cores:
         - core0
         - core1
-  flash_algorithms: []
+  flash_algorithms:
+    - zynq7000-qspi-flash-algorithm
+flash_algorithms:
+- name: zynq7000-qspi-flash-algorithm
+  description: A flash algorithm under test
+  default: true
+  instructions: AEgt6YTBAOMBIELiAMBA4wHgoOMEAFLjAODM5RYAACoEIADjDT8N4wAoT+Nf8H/1BDCC5QAwoOMmDKDjX/B/9SgyguUCGqDjMAeC5QQCCuMAAE7jABCA5QQQgOXEMQDlewYH41/wf/UAAILlAACg41/wf/UA4MzlAIi96DQAAOuEEQDjAQCg4wAQQOMAINHlAQBS4wAAoAMAAMEFHv8v4YQBAOMAAEDjAADQ5QEAIOIe/y/hhAEA4wAAQOMAANDlAQAg4h7/L+GEAQDjAABA4wAQ0OUBAKDjAQBR4x7/LxEEAADjDR8N4wAIT+Nf8H/1BBCA5UAQCuMCKqDjABBO41/wf/UAIIHlexYH41/wf/UAEIDlAACg41/wf/Ue/y/hhCEA4wAgQOMAMNLlASCg4wAAU+MAIIEQAgCg4R7/L+GEAQDjAABA4wAA0OUBACDiHv8v4QBILekNsKDh8ADw5/7e/+cA1NTU
+  load_address: 0x20
+  pc_init: 0x0
+  pc_uninit: 0x80
+  pc_program_page: 0xb4
+  pc_erase_sector: 0xa0
+  pc_erase_all: 0xc8
+  pc_verify: 0x120
+  pc_blank_check: 0x140
+  pc_read: 0xb4
+  data_section_offset: 0x168
+  flash_properties:
+    address_range:
+      start: 0xfc000000
+      end: 0xfd000000
+    page_size: 0x100
+    erased_byte_value: 0xff
+    program_page_timeout: 1000
+    erase_sector_timeout: 2000
+    sectors:
+    - size: 0x1000
+      address: 0x0
+  cores:
+  - core0

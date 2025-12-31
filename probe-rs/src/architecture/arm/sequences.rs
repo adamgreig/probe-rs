@@ -131,7 +131,7 @@ fn armv7a_reset_system(
 
     loop {
         let dbgprsr = Dbgprsr(interface.read_word_32(address)?);
-        if dbgprsr.sr() {
+        if dbgprsr.sr() || true {
             break;
         }
     }
