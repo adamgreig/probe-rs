@@ -684,6 +684,7 @@ pub(crate) fn read_word_32(
     base_address: u64,
     address: u32,
 ) -> Result<u32, ArmError> {
+    tracing::info!("read_word_32 via cpu (1) {:08X}", address);
     // Load address into r0
     set_instruction_input(memory, base_address, address)?;
     execute_instruction(memory, base_address, build_mrc(14, 0, 0, 0, 5, 0))?;
@@ -791,38 +792,32 @@ impl CoreInterface for Armv7a<'_> {
     }
 
     fn reset_and_halt(&mut self, timeout: Duration) -> Result<CoreInformation, Error> {
-        tracing::info!("reset_and_halt entered, setting reset catch");
         self.sequence.reset_catch_set(
             &mut *self.memory,
             crate::CoreType::Armv7a,
             Some(self.base_address),
         )?;
-        tracing::info!("resetting system");
         self.sequence.reset_system(
             &mut *self.memory,
             crate::CoreType::Armv7a,
             Some(self.base_address),
         )?;
 
-        // Request halt
-        tracing::info!("requesting halt with hrq");
-        let address = Dbgdrcr::get_mmio_address_from_base(self.base_address)?;
-        let mut value = Dbgdrcr(0);
-        value.set_hrq(true);
+        if !self.core_halted()? {
+            tracing::warn!("Core not halted after reset, platform-specific setup may be required");
+            tracing::warn!("Requesting halt anyway, but system may already be initialised");
+            let address = Dbgdrcr::get_mmio_address_from_base(self.base_address)?;
+            let mut value = Dbgdrcr(0);
+            value.set_hrq(true);
+            self.memory.write_word_32(address, value.into())?;
+        }
 
-        self.memory.write_word_32(address, value.into())?;
-
-        // Release from reset
-        tracing::info!("clearing reset catch");
         self.sequence.reset_catch_clear(
             &mut *self.memory,
             crate::CoreType::Armv7a,
             Some(self.base_address),
         )?;
-
-        tracing::info!("waiting for core halted");
         self.wait_for_core_halted(timeout)?;
-        tracing::info!("core halted");
 
         // Update core status
         let _ = self.status()?;
@@ -832,7 +827,6 @@ impl CoreInterface for Armv7a<'_> {
 
         // try to read the program counter
         let pc_value = self.read_core_reg(self.program_counter().into())?;
-        tracing::info!("pc: {:08x?}", pc_value);
 
         // get pc
         Ok(CoreInformation {
@@ -1212,6 +1206,7 @@ impl MemoryInterface for Armv7a<'_> {
     }
 
     fn read_word_32(&mut self, address: u64) -> Result<u32, Error> {
+        tracing::info!("read_word_32 via cpu (2) {:08X}", address);
         self.halted_access(|core| {
             let address = valid_32bit_address(address)?;
 
@@ -1230,6 +1225,7 @@ impl MemoryInterface for Armv7a<'_> {
     }
 
     fn read_word_16(&mut self, address: u64) -> Result<u16, Error> {
+        tracing::info!("read_word_16 via cpu (2) {:08X}", address);
         self.halted_access(|core| {
             // Find the word this is in and its byte offset
             let mut byte_offset = address % 4;
@@ -1257,6 +1253,7 @@ impl MemoryInterface for Armv7a<'_> {
     }
 
     fn read_word_8(&mut self, address: u64) -> Result<u8, Error> {
+        tracing::info!("read_word_8 via cpu (2) {:08X}", address);
         self.halted_access(|core| {
             // Find the word this is in and its byte offset
             let mut byte_offset = address % 4;
@@ -1288,6 +1285,7 @@ impl MemoryInterface for Armv7a<'_> {
     }
 
     fn read_32(&mut self, address: u64, data: &mut [u32]) -> Result<(), Error> {
+        tracing::info!("read_32 via cpu (2) {:08X} {}", address, data.len());
         self.halted_access(|core| {
             let count = data.len();
             if count > 2 {
@@ -1342,6 +1340,7 @@ impl MemoryInterface for Armv7a<'_> {
     }
 
     fn read_16(&mut self, address: u64, data: &mut [u16]) -> Result<(), Error> {
+        tracing::info!("read_16 via cpu (2) {:08X} {}", address, data.len());
         self.halted_access(|core| {
             for (i, word) in data.iter_mut().enumerate() {
                 *word = core.read_word_16(address + ((i as u64) * 2))?;
@@ -1356,6 +1355,7 @@ impl MemoryInterface for Armv7a<'_> {
     }
 
     fn read(&mut self, address: u64, data: &mut [u8]) -> Result<(), Error> {
+        tracing::info!("read via cpu (2) {:08X} {}", address, data.len());
         self.halted_access(|core| {
             if address.is_multiple_of(4) && data.len().is_multiple_of(4) {
                 // Avoid heap allocation and copy if we don't need it.

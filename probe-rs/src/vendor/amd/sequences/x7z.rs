@@ -60,7 +60,6 @@ impl ArmDebugSequence for X7Z {
                 Ok(reg) if (reg >> 19) & 1 == 1 => {
                     tracing::debug!("Reset complete.");
 
-                    /*
                     // read some useful registers...
                     let dbgprsr = mem_ap.read_word_32(0xF889_0314)?;
                     let dbgdscr = mem_ap.read_word_32(0xF889_0088)?;
@@ -76,17 +75,6 @@ impl ArmDebugSequence for X7Z {
                     tracing::debug!("DBGDIDR: {:08X}", dbgdidr);
                     tracing::debug!("DBGBCR0: {:08X}", dbgbcr0);
                     tracing::debug!("DBGBVR0: {:08X}", dbgbvr0);
-
-                    tracing::debug!("Halting...");
-                    //drop(mem_ap);
-                    //let debug_base = debug_base.unwrap();
-                    //request_halt(interface, debug_base)?;
-                    //wait_for_core_halted(interface, debug_base, Duration::from_millis(100))?;
-                    //let mut mem_ap = interface.get_arm_debug_interface()?.memory_interface(&ap)?;
-
-                    tracing::info!("Sleeping for 10 seconds");
-                    std::thread::sleep(Duration::from_secs(10));
-                    */
                     return Ok(());
                 },
                 _ => {

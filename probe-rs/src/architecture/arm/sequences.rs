@@ -76,25 +76,14 @@ fn armv7a_reset_catch_set(
 ) -> Result<(), ArmError> {
     use crate::architecture::arm::core::armv7a_debug_regs::Dbgvcr;
 
-    use crate::architecture::arm::core::armv7a::set_hw_breakpoint;
-
     let debug_base =
         debug_base.ok_or_else(|| ArmError::from(ArmDebugSequenceError::DebugBaseNotSpecified))?;
 
+    tracing::debug!("Enabling reset vector catch");
     let address = Dbgvcr::get_mmio_address_from_base(debug_base)?;
     let mut dbgvcr = Dbgvcr(core.read_word_32(address)?);
-    tracing::debug!("Setting DBGVCR at {:08X}, was {:?}", address, dbgvcr);
-
     dbgvcr.set_r(true);
-
-    tracing::debug!("Enabling reset vector catch");
     core.write_word_32(address, dbgvcr.into())?;
-
-    let mut dbgvcr = Dbgvcr(core.read_word_32(address)?);
-    tracing::debug!("Setting DBGVCR, now {:?}", dbgvcr);
-
-    set_hw_breakpoint(core, debug_base, 0, 0x0)?;
-    set_hw_breakpoint(core, debug_base, 1, 0x250)?;
 
     Ok(())
 }
@@ -109,17 +98,11 @@ fn armv7a_reset_catch_clear(
     let debug_base =
         debug_base.ok_or_else(|| ArmError::from(ArmDebugSequenceError::DebugBaseNotSpecified))?;
 
+    tracing::debug!("Disabling reset vector catch");
     let address = Dbgvcr::get_mmio_address_from_base(debug_base)?;
     let mut dbgvcr = Dbgvcr(core.read_word_32(address)?);
-
     dbgvcr.set_r(false);
-
-    tracing::debug!("Disabling reset vector catch");
     core.write_word_32(address, dbgvcr.into())?;
-
-    use crate::architecture::arm::core::armv7a::clear_hw_breakpoint;
-    clear_hw_breakpoint(core, debug_base, 0)?;
-    clear_hw_breakpoint(core, debug_base, 1)?;
 
     Ok(())
 }
