@@ -1,3 +1,17 @@
+# Generated from https://github.com/adamgreig/zynq7000-qspi-flash-algorithm
+#
+# Zynq-7000 SoCs have three APs:
+# 0: MEM-AP that masters the main memory bus, can access all memory
+#    without CPU intervention, but is not on the CPU debug bus.
+#    Debug component access is via global memory-mapped address.
+#    Can't modify debug registers when software lock is active.
+# 1: MEM-AP on the APB-AP debug bus. Can only access debug peripherals.
+#    Uses a different debug base address, hence 0x80090000 below instead
+#    of the global address 0xF8890000 in the user guide.
+# 2: JTAG-AP which can only be used to drive SRST from debug.
+#
+# By default, the BootROM maps the first 192kB of OCM to the lower addresses,
+# leaving the final 64kB mapped to the top 64kB of address space.
 ---
 name: Zynq 7000 Series
 manufacturer:
@@ -10,14 +24,14 @@ variants:
       type: armv7a
       core_access_options: !Arm
         ap: !v1 1
-        debug_base: 0x80090000  # This address used from APB-AP debug bus.
+        debug_base: 0x80090000
         cti_base: 0x80098000
         jtag_tap: 1
     - name: core1
       type: armv7a
       core_access_options: !Arm
         ap: !v1 1
-        debug_base: 0x80092000  # This address used from APB-AP debug bus.
+        debug_base: 0x80092000
         cti_base: 0x80099000
         jtag_tap: 1
   jtag:
@@ -28,18 +42,16 @@ variants:
         ir_len: 4
   rtt_scan_ranges:
     - start: 0x00000000
-      end: 0x00040000
+      end: 0x00030000
   memory_map:
     - !Ram
       name: OCM
       range:
         start: 0x00000000
-        end: 0x00040000
+        end: 0x00030000
       cores:
         - core0
         - core1
-      access:
-        boot: true
     - !Ram
       name: DDR
       range:
