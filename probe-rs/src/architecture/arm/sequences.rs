@@ -74,17 +74,27 @@ fn armv7a_reset_catch_set(
     core: &mut dyn ArmMemoryInterface,
     debug_base: Option<u64>,
 ) -> Result<(), ArmError> {
-    use crate::architecture::arm::core::armv7a_debug_regs::Dbgprcr;
+    use crate::architecture::arm::core::armv7a_debug_regs::Dbgvcr;
+
+    use crate::architecture::arm::core::armv7a::set_hw_breakpoint;
 
     let debug_base =
         debug_base.ok_or_else(|| ArmError::from(ArmDebugSequenceError::DebugBaseNotSpecified))?;
 
-    let address = Dbgprcr::get_mmio_address_from_base(debug_base)?;
-    let mut dbgprcr = Dbgprcr(core.read_word_32(address)?);
+    let address = Dbgvcr::get_mmio_address_from_base(debug_base)?;
+    let mut dbgvcr = Dbgvcr(core.read_word_32(address)?);
+    tracing::debug!("Setting DBGVCR at {:08X}, was {:?}", address, dbgvcr);
 
-    dbgprcr.set_hcwr(true);
+    dbgvcr.set_r(true);
 
-    core.write_word_32(address, dbgprcr.into())?;
+    tracing::debug!("Enabling reset vector catch");
+    core.write_word_32(address, dbgvcr.into())?;
+
+    let mut dbgvcr = Dbgvcr(core.read_word_32(address)?);
+    tracing::debug!("Setting DBGVCR, now {:?}", dbgvcr);
+
+    set_hw_breakpoint(core, debug_base, 0, 0x0)?;
+    set_hw_breakpoint(core, debug_base, 1, 0x250)?;
 
     Ok(())
 }
@@ -94,17 +104,22 @@ fn armv7a_reset_catch_clear(
     core: &mut dyn ArmMemoryInterface,
     debug_base: Option<u64>,
 ) -> Result<(), ArmError> {
-    use crate::architecture::arm::core::armv7a_debug_regs::Dbgprcr;
+    use crate::architecture::arm::core::armv7a_debug_regs::Dbgvcr;
 
     let debug_base =
         debug_base.ok_or_else(|| ArmError::from(ArmDebugSequenceError::DebugBaseNotSpecified))?;
 
-    let address = Dbgprcr::get_mmio_address_from_base(debug_base)?;
-    let mut dbgprcr = Dbgprcr(core.read_word_32(address)?);
+    let address = Dbgvcr::get_mmio_address_from_base(debug_base)?;
+    let mut dbgvcr = Dbgvcr(core.read_word_32(address)?);
 
-    dbgprcr.set_hcwr(false);
+    dbgvcr.set_r(false);
 
-    core.write_word_32(address, dbgprcr.into())?;
+    tracing::debug!("Disabling reset vector catch");
+    core.write_word_32(address, dbgvcr.into())?;
+
+    use crate::architecture::arm::core::armv7a::clear_hw_breakpoint;
+    clear_hw_breakpoint(core, debug_base, 0)?;
+    clear_hw_breakpoint(core, debug_base, 1)?;
 
     Ok(())
 }
@@ -113,6 +128,11 @@ fn armv7a_reset_system(
     interface: &mut dyn ArmMemoryInterface,
     debug_base: Option<u64>,
 ) -> Result<(), ArmError> {
+    // Note that this is a best-effort reset that might not do anything;
+    // per Arm docs for EDPRCR, the request is implementation-defined and
+    // Arm deprecate use of this bit. You may need to implement a vendor-specific
+    // reset sequence instead.
+    tracing::debug!("Running default ARMv7A system reset via DBGPRCR.CWRR");
     use crate::architecture::arm::core::armv7a_debug_regs::{Dbgprcr, Dbgprsr};
 
     let debug_base =
@@ -131,7 +151,7 @@ fn armv7a_reset_system(
 
     loop {
         let dbgprsr = Dbgprsr(interface.read_word_32(address)?);
-        if dbgprsr.sr() || true {
+        if dbgprsr.sr() {
             break;
         }
     }
@@ -144,7 +164,9 @@ fn armv7a_core_start(
     core: &mut dyn ArmMemoryInterface,
     debug_base: Option<u64>,
 ) -> Result<(), ArmError> {
-    use crate::architecture::arm::core::armv7a_debug_regs::{Dbgdsccr, Dbgdscr, Dbgdsmcr, Dbglar};
+    use crate::architecture::arm::core::armv7a_debug_regs::{
+        Dbgdsccr, Dbgdscr, Dbgdsmcr, Dbglar, Dbgvcr,
+    };
 
     let debug_base =
         debug_base.ok_or_else(|| ArmError::from(ArmDebugSequenceError::DebugBaseNotSpecified))?;
@@ -164,6 +186,10 @@ fn armv7a_core_start(
     // Disable TLB matching and updates for debugger operations
     let address = Dbgdsmcr::get_mmio_address_from_base(debug_base)?;
     core.write_word_32(address, Dbgdsmcr(0).into())?;
+
+    // Clear all vector catch bits to ensure defined startup value
+    let address = Dbgvcr::get_mmio_address_from_base(debug_base)?;
+    core.write_word_32(address, Dbgvcr(0).into())?;
 
     // Enable halting
     let address = Dbgdscr::get_mmio_address_from_base(debug_base)?;
@@ -225,6 +251,10 @@ fn armv8a_reset_system(
     interface: &mut dyn ArmMemoryInterface,
     debug_base: Option<u64>,
 ) -> Result<(), ArmError> {
+    // Note that this is a best-effort reset that might not do anything;
+    // per Arm docs for EDPRCR, the request is implementation-defined and
+    // Arm deprecate use of this bit. You may need to implement a vendor-specific
+    // reset sequence instead.
     use crate::architecture::arm::core::armv8a_debug_regs::{Edprcr, Edprsr};
 
     let debug_base =

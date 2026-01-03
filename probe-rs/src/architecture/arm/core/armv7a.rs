@@ -791,11 +791,13 @@ impl CoreInterface for Armv7a<'_> {
     }
 
     fn reset_and_halt(&mut self, timeout: Duration) -> Result<CoreInformation, Error> {
+        tracing::info!("reset_and_halt entered, setting reset catch");
         self.sequence.reset_catch_set(
             &mut *self.memory,
             crate::CoreType::Armv7a,
             Some(self.base_address),
         )?;
+        tracing::info!("resetting system");
         self.sequence.reset_system(
             &mut *self.memory,
             crate::CoreType::Armv7a,
@@ -803,6 +805,7 @@ impl CoreInterface for Armv7a<'_> {
         )?;
 
         // Request halt
+        tracing::info!("requesting halt with hrq");
         let address = Dbgdrcr::get_mmio_address_from_base(self.base_address)?;
         let mut value = Dbgdrcr(0);
         value.set_hrq(true);
@@ -810,13 +813,16 @@ impl CoreInterface for Armv7a<'_> {
         self.memory.write_word_32(address, value.into())?;
 
         // Release from reset
+        tracing::info!("clearing reset catch");
         self.sequence.reset_catch_clear(
             &mut *self.memory,
             crate::CoreType::Armv7a,
             Some(self.base_address),
         )?;
 
+        tracing::info!("waiting for core halted");
         self.wait_for_core_halted(timeout)?;
+        tracing::info!("core halted");
 
         // Update core status
         let _ = self.status()?;
@@ -826,6 +832,7 @@ impl CoreInterface for Armv7a<'_> {
 
         // try to read the program counter
         let pc_value = self.read_core_reg(self.program_counter().into())?;
+        tracing::info!("pc: {:08x?}", pc_value);
 
         // get pc
         Ok(CoreInformation {
